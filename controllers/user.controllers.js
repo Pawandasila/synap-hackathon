@@ -6,6 +6,9 @@ import {
   loginSchema 
 } from "../validator/user.validator.js";
 import { HTTPSTATUS } from "../config/Https.config.js";
+import { hashPassword } from "../utils/Bcrypt.util.js";
+import { AsyncHandler } from "../middlewares/AsyncHandler.middleware.js";
+import { AppError } from "../utils/AppError.js";
 
 export const initializeUserTable = async () => {
   try {
@@ -32,6 +35,8 @@ export const createUser = async (req, res) => {
       });
     }
 
+    const hashedPassword = await hashPassword(password);
+
     const createUserQuery = `
       INSERT INTO users (name, email, password, authprovider, role)
       OUTPUT INSERTED.*
@@ -41,14 +46,13 @@ export const createUser = async (req, res) => {
     const result = await executeParameterizedQuery(createUserQuery, {
       name,
       email,
-      password, // TODO: Hash password in production
+      password: hashedPassword,
       authprovider,
       role
     });
 
     const newUser = result.recordset[0];
     
-    // Remove password from response
     const { password: _, ...safeUser } = newUser;
 
     res.status(HTTPSTATUS.CREATED).json({
@@ -67,91 +71,86 @@ export const createUser = async (req, res) => {
   }
 };
 
-// // Get user by ID - SQL injection safe
-// export const getUserById = AsyncHandler(async (req, res, next) => {
-//   const { userid } = req.params;
+
+export const getUserById = AsyncHandler(async (req, res, next) => {
+  const { id } = req.params;
   
-//   // Validate user ID is a number
-//   const userIdNum = parseInt(userid);
-//   if (isNaN(userIdNum) || userIdNum <= 0) {
-//     throw new AppError("Invalid user ID", HTTPSTATUS.BAD_REQUEST, "INVALID_USER_ID");
-//   }
+  const userIdNum = parseInt(id);
+  if (isNaN(userIdNum) || userIdNum <= 0) {
+    throw new AppError("Invalid user ID", HTTPSTATUS.BAD_REQUEST, "INVALID_USER_ID");
+  }
 
-//   try {
-//     const getUserQuery = `SELECT * FROM users WHERE userid = @userid`;
-//     const result = await executeParameterizedQuery(getUserQuery, { userid: userIdNum });
+  try {
+    const getUserQuery = `SELECT * FROM users WHERE userid = @id`;
+    const result = await executeParameterizedQuery(getUserQuery, { id: userIdNum });
+
+    if (result.recordset.length === 0) {
+      throw new AppError("User not found", HTTPSTATUS.NOT_FOUND, "USER_NOT_FOUND");
+    }
+
+    const user = result.recordset[0];
+    // Remove password from response
+    const { password: _, ...safeUser } = user;
+
+    res.status(HTTPSTATUS.OK).json({
+      success: true,
+      message: "User retrieved successfully",
+      data: safeUser
+    });
+
+  } catch (error) {
+    console.error('Get user error:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError("Failed to retrieve user", HTTPSTATUS.INTERNAL_SERVER_ERROR, "USER_RETRIEVAL_ERROR");
+  }
+});
+
+
+export const getAllUsers = AsyncHandler(async (req, res, next) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
+
+  if (page < 1 || limit < 1 || limit > 100) {
+    throw new AppError("Invalid pagination parameters", HTTPSTATUS.BAD_REQUEST, "INVALID_PAGINATION");
+  }
+
+  try {
+    const getUsersQuery = `
+      SELECT * FROM users 
+      ORDER BY createdat DESC
+      OFFSET @offset ROWS 
+      FETCH NEXT @limit ROWS ONLY
+    `;
     
-//     if (result.recordset.length === 0) {
-//       throw new AppError("User not found", HTTPSTATUS.NOT_FOUND, "USER_NOT_FOUND");
-//     }
-
-//     const user = result.recordset[0];
-//     // Remove password from response
-//     const { password: _, ...safeUser } = user;
-
-//     res.status(HTTPSTATUS.OK).json({
-//       success: true,
-//       message: "User retrieved successfully",
-//       data: safeUser
-//     });
-
-//   } catch (error) {
-//     console.error('Get user error:', error);
-//     if (error instanceof AppError) throw error;
-//     throw new AppError("Failed to retrieve user", HTTPSTATUS.INTERNAL_SERVER_ERROR, "USER_RETRIEVAL_ERROR");
-//   }
-// });
-
-// // Get all users with pagination - SQL injection safe
-// export const getAllUsers = AsyncHandler(async (req, res, next) => {
-//   const page = parseInt(req.query.page) || 1;
-//   const limit = parseInt(req.query.limit) || 10;
-//   const offset = (page - 1) * limit;
-
-//   // Validate pagination parameters
-//   if (page < 1 || limit < 1 || limit > 100) {
-//     throw new AppError("Invalid pagination parameters", HTTPSTATUS.BAD_REQUEST, "INVALID_PAGINATION");
-//   }
-
-//   try {
-//     // Get users with pagination
-//     const getUsersQuery = `
-//       SELECT * FROM users 
-//       ORDER BY createdat DESC
-//       OFFSET @offset ROWS 
-//       FETCH NEXT @limit ROWS ONLY
-//     `;
+    const result = await executeParameterizedQuery(getUsersQuery, { offset, limit });
     
-//     const result = await executeParameterizedQuery(getUsersQuery, { offset, limit });
+    const countQuery = `SELECT COUNT(*) as total FROM users`;
+    const countResult = await executeParameterizedQuery(countQuery);
+    const total = countResult.recordset[0].total;
     
-//     // Get total count
-//     const countQuery = `SELECT COUNT(*) as total FROM users`;
-//     const countResult = await executeParameterizedQuery(countQuery);
-//     const total = countResult.recordset[0].total;
-    
-//     // Remove passwords from all users
-//     const safeUsers = result.recordset.map(user => {
-//       const { password: _, ...safeUser } = user;
-//       return safeUser;
-//     });
+    const safeUsers = result.recordset.map(user => {
+      const { password: _, ...safeUser } = user;
+      return safeUser;
+    });
 
-//     res.status(HTTPSTATUS.OK).json({
-//       success: true,
-//       message: "Users retrieved successfully",
-//       data: safeUsers,
-//       pagination: {
-//         page,
-//         limit,
-//         total,
-//         totalPages: Math.ceil(total / limit)
-//       }
-//     });
+    res.status(HTTPSTATUS.OK).json({
+      success: true,
+      message: "Users retrieved successfully",
+      data: safeUsers,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
 
-//   } catch (error) {
-//     console.error('Get users error:', error);
-//     throw new AppError("Failed to retrieve users", HTTPSTATUS.INTERNAL_SERVER_ERROR, "USERS_RETRIEVAL_ERROR");
-//   }
-// });
+  } catch (error) {
+    console.error('Get users error:', error);
+    throw new AppError("Failed to retrieve users", HTTPSTATUS.INTERNAL_SERVER_ERROR, "USERS_RETRIEVAL_ERROR");
+  }
+});
 
 // // Update user - SQL injection safe
 // export const updateUser = AsyncHandler(async (req, res, next) => {
@@ -244,7 +243,7 @@ export const createUser = async (req, res) => {
 //     // Delete user
 //     const deleteUserQuery = `DELETE FROM users WHERE userid = @userid`;
 //     await executeParameterizedQuery(deleteUserQuery, { userid: userIdNum });
-
+//
 //     res.status(HTTPSTATUS.OK).json({
 //       success: true,
 //       message: "User deleted successfully"
@@ -329,13 +328,3 @@ export const createUser = async (req, res) => {
 //     throw new AppError("Failed to retrieve users by role", HTTPSTATUS.INTERNAL_SERVER_ERROR, "ROLE_USERS_ERROR");
 //   }
 // });
-
-export default {
-  createUser,
-//   getUserById,
-//   getAllUsers,
-//   updateUser,
-//   deleteUser,
-//   searchUsers,
-//   getUsersByRole
-};

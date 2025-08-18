@@ -11,7 +11,7 @@ import { ErrorHandler } from "./middlewares/ErrorHandler.middleware.js";
 import DatabaseConnect from "./config/database.config.js";
 import poolPromise from "./config/sql.config.js";
 import { initializeUserTable } from "./controllers/user.controllers.js";
-// import UserRoute from "./routes/user.routes.js";
+import UserRoute from "./routes/user.routes.js";
 
 const app = express();
 
@@ -44,10 +44,8 @@ app.get(
     const date = new Date();
     
     try {
-      // Get the connection pool
       const pool = await poolPromise;
       
-      // Query to get all tables in the database
       const tablesQuery = `
         SELECT 
           TABLE_SCHEMA,
@@ -60,7 +58,6 @@ app.get(
       
       const tablesResult = await pool.request().query(tablesQuery);
       
-      // Query to get database info
       const dbInfoQuery = `
         SELECT 
           DB_NAME() as DatabaseName,
@@ -97,7 +94,7 @@ app.get(
   })
 );
 
-// app.use(`${BASE_PATH}/v1/users`, UserRoute);
+app.use(`${BASE_PATH}/v1/users`, UserRoute);
 // app.use(`${BASE_PATH}/v1/users`, UserRoute);
 
 app.use(ErrorHandler);
