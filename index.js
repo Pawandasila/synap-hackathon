@@ -10,6 +10,7 @@ import { HTTPSTATUS } from "./config/Https.config.js";
 import { ErrorHandler } from "./middlewares/ErrorHandler.middleware.js";
 import DatabaseConnect from "./config/database.config.js";
 import poolPromise from "./config/sql.config.js";
+import { initializeUserTable } from "./controllers/user.controllers.js";
 // import UserRoute from "./routes/user.routes.js";
 
 const app = express();
@@ -106,6 +107,7 @@ const initializeApp = async () => {
   try {
     await DatabaseConnect();
     await poolPromise;
+    await initializeUserTable();
     console.log(`Database connected in ${Env.NODE_ENV} mode.`);
   } catch (error) {
     console.error('Failed to initialize app:', error);

@@ -10,7 +10,7 @@ const config = {
   options: {
     encrypt: true,
     enableArithAbort: true,
-    trustServerCertificate: true, // Set to true for Azure SQL
+    trustServerCertificate: true,
   },
   pool: {
     max: 10,
