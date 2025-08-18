@@ -1,17 +1,24 @@
 import "dotenv/config";
 import express from "express";
-
 import cors from "cors";
 import morgan from "morgan";
 import helmet from "helmet";
+
 import { Env } from "./config/env.config.js";
 import { AsyncHandler } from "./middlewares/AsyncHandler.middleware.js";
 import { HTTPSTATUS } from "./config/Https.config.js";
 import { ErrorHandler } from "./middlewares/ErrorHandler.middleware.js";
+
 import DatabaseConnect from "./config/database.config.js";
 import poolPromise from "./config/sql.config.js";
-import { initializeUserTable } from "./controllers/user.controllers.js";
+
+import { initializeUserTable } from "./controllers/user.controller.js";
+import { initializeEventTable } from "./controllers/event.controller.js";
+import { initializeTeamTable } from "./controllers/team.controller.js";
+
 import UserRoute from "./routes/user.routes.js";
+import EventRoute from "./routes/event.route.js";
+import TeamRoute from "./routes/team.routes.js";
 
 const app = express();
 
@@ -95,16 +102,18 @@ app.get(
 );
 
 app.use(`${BASE_PATH}/v1/users`, UserRoute);
-// app.use(`${BASE_PATH}/v1/users`, UserRoute);
+app.use(`${BASE_PATH}/v1/events`, EventRoute);
+app.use(`${BASE_PATH}/v1/teams`, TeamRoute);
 
 app.use(ErrorHandler);
 
-// Initialize database connection
 const initializeApp = async () => {
   try {
     await DatabaseConnect();
     await poolPromise;
     await initializeUserTable();
+    await initializeEventTable();
+    await initializeTeamTable();
     console.log(`Database connected in ${Env.NODE_ENV} mode.`);
   } catch (error) {
     console.error('Failed to initialize app:', error);
