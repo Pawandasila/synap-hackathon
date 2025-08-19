@@ -9,7 +9,7 @@ const DatabaseConnect = async () => {
   } catch (error) {
     console.error("Database connection failed:", error);
     
-    // More specific error handling
+  
     if (error instanceof mongoose.Error) {
       console.error("Mongoose error details:", error.message);
     }
