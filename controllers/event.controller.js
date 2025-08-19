@@ -358,18 +358,12 @@ export const deleteEvent = AsyncHandler(async (req, res) => {
 });
 
 export const searchEvents = AsyncHandler(async (req, res) => {
-    const { q: searchTerm } = req.query;
+    const { query: searchTerm, mode, theme } = req.query;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
 
-    if (!searchTerm || searchTerm.trim().length < 2) {
-        return res.status(HTTPSTATUS.BAD_REQUEST).json({
-            success: false,
-            message: "Search term must be at least 2 characters"
-        });
-    }
-
+    // Validate pagination parameters
     if (page < 1 || limit < 1 || limit > 100) {
         return res.status(HTTPSTATUS.BAD_REQUEST).json({
             success: false,
@@ -377,33 +371,51 @@ export const searchEvents = AsyncHandler(async (req, res) => {
         });
     }
 
+    // Build WHERE conditions
+    let whereConditions = ["IsActive = 1"];
+    let queryParams = { Offset: offset, Limit: limit };
+
+    // Add search term condition
+    if (searchTerm && searchTerm.trim().length >= 2) {
+        whereConditions.push("(Name LIKE @searchTerm OR Theme LIKE @searchTerm OR Description LIKE @searchTerm)");
+        queryParams.searchTerm = `%${searchTerm.trim()}%`;
+    }
+
+    // Add mode filter
+    if (mode && (mode === 'Online' || mode === 'Offline')) {
+        whereConditions.push("Mode = @mode");
+        queryParams.mode = mode;
+    }
+
+    // Add theme filter
+    if (theme && theme.trim().length > 0) {
+        whereConditions.push("Theme LIKE @theme");
+        queryParams.theme = `%${theme.trim()}%`;
+    }
+
+    const whereClause = whereConditions.join(" AND ");
+
+    // Count total events
     const countQuery = `
         SELECT COUNT(*) as total FROM events 
-        WHERE (Name LIKE @searchTerm OR Theme LIKE @searchTerm OR Description LIKE @searchTerm) 
-        AND IsActive = 1
+        WHERE ${whereClause}
     `;
-    const countResult = await executeParameterizedQuery(countQuery, { 
-        searchTerm: `%${searchTerm.trim()}%` 
-    });
+    const countResult = await executeParameterizedQuery(countQuery, queryParams);
     const totalEvents = countResult.recordset[0].total;
 
+    // Search events
     const searchQuery = `
         SELECT EventID, OrganizerID, Name, Description, Theme, Mode, 
                StartDate, EndDate, SubmissionDeadline, ResultDate, 
                Rules, Timeline, Tracks, Prizes, MaxTeamSize, Sponsors, IsActive, CreatedAt
         FROM events 
-        WHERE (Name LIKE @searchTerm OR Theme LIKE @searchTerm OR Description LIKE @searchTerm) 
-        AND IsActive = 1
+        WHERE ${whereClause}
         ORDER BY StartDate DESC
         OFFSET @Offset ROWS
         FETCH NEXT @Limit ROWS ONLY
     `;
 
-    const result = await executeParameterizedQuery(searchQuery, { 
-        searchTerm: `%${searchTerm.trim()}%`,
-        Offset: offset,
-        Limit: limit
-    });
+    const result = await executeParameterizedQuery(searchQuery, queryParams);
 
     const totalPages = Math.ceil(totalEvents / limit);
     const hasNextPage = page < totalPages;
@@ -413,7 +425,11 @@ export const searchEvents = AsyncHandler(async (req, res) => {
         success: true,
         message: "Search completed successfully",
         data: result.recordset,
-        searchTerm: searchTerm.trim(),
+        filters: {
+            query: searchTerm || null,
+            mode: mode || null,
+            theme: theme || null
+        },
         pagination: {
             currentPage: page,
             totalPages: totalPages,

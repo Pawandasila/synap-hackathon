@@ -182,7 +182,7 @@ export const enrollEventValidator = z.object({
 export const eventSearchValidator = z.object({
     query: z
         .string()
-        .min(1, "Search query cannot be empty")
+        .min(2, "Search query must be at least 2 characters")
         .max(100, "Search query cannot exceed 100 characters")
         .optional(),
     
@@ -192,7 +192,22 @@ export const eventSearchValidator = z.object({
     
     theme: z
         .string()
+        .min(1, "Theme cannot be empty")
         .max(255, "Theme cannot exceed 255 characters")
+        .optional(),
+    
+    page: z
+        .string()
+        .transform((val) => parseInt(val))
+        .refine((val) => !isNaN(val) && val > 0, "Page must be a positive number")
+        .default("1")
+        .optional(),
+    
+    limit: z
+        .string()
+        .transform((val) => parseInt(val))
+        .refine((val) => !isNaN(val) && val > 0 && val <= 100, "Limit must be between 1 and 100")
+        .default("10")
         .optional()
 });
 
