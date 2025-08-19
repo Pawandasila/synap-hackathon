@@ -216,7 +216,7 @@ export const updateUser = AsyncHandler(async (req, res, next) => {
     throw new AppError("Invalid user ID", HTTPSTATUS.BAD_REQUEST, "INVALID_USER_ID");
   }
 
-  const validatedData = updateUserSchema.parse(req.body);
+  const validatedData = updateUserValidator.parse(req.body);
   
   try {
 
