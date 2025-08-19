@@ -19,6 +19,10 @@ import { initializeTeamTable } from "./controllers/team.controller.js";
 import UserRoute from "./routes/user.routes.js";
 import EventRoute from "./routes/event.route.js";
 import TeamRoute from "./routes/team.routes.js";
+import SubmissionRoute from "./routes/submission.routes.js";
+import AnnouncementRoute from "./routes/announcement.routes.js";
+import CertificateRoute from "./routes/certificate.routes.js";
+import ChatQnARoute from "./routes/chatQna.routes.js";
 
 const app = express();
 
@@ -104,6 +108,10 @@ app.get(
 app.use(`${BASE_PATH}/v1/users`, UserRoute);
 app.use(`${BASE_PATH}/v1/events`, EventRoute);
 app.use(`${BASE_PATH}/v1/teams`, TeamRoute);
+app.use(`${BASE_PATH}/v1/submissions`, SubmissionRoute);
+app.use(`${BASE_PATH}/v1/announcements`, AnnouncementRoute);
+app.use(`${BASE_PATH}/v1/certificates`, CertificateRoute);
+app.use(`${BASE_PATH}/v1/chat`, ChatQnARoute);
 
 app.use(ErrorHandler);
 

@@ -1,14 +1,27 @@
 import mongoose from "mongoose";
+import { validateEventExists, validateUserExists } from "../utils/validation.util.js";
 
 const chatQnASchema = new mongoose.Schema(
   {
     eventId: {
       type: Number,
       required: true,
+      validate: {
+        validator: async function(eventId) {
+          return await validateEventExists(eventId);
+        },
+        message: 'Referenced event does not exist in SQL database'
+      }
     },
     fromUserId: {
       type: Number,
       required: true,
+      validate: {
+        validator: async function(fromUserId) {
+          return await validateUserExists(fromUserId);
+        },
+        message: 'Referenced user does not exist in SQL database'
+      }
     },
     message: {
       type: String,
@@ -20,6 +33,12 @@ const chatQnASchema = new mongoose.Schema(
         fromUserId: {
           type: Number,
           required: true,
+          validate: {
+            validator: async function(fromUserId) {
+              return await validateUserExists(fromUserId);
+            },
+            message: 'Referenced user does not exist in SQL database'
+          }
         },
         message: {
           type: String,

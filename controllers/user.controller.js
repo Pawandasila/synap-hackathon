@@ -1,10 +1,10 @@
 import { UserModel } from "../models/User.model.js";
 import { executeParameterizedQuery } from "../utils/sql.util.js";
 import { 
-  createUserSchema,
-  loginSchema, 
-  updateUserSchema
-} from "../validator/user.validator.js";
+  createUserValidator,
+  loginValidator, 
+  updateUserValidator
+} from "../validators/user.validators.js";
 import { HTTPSTATUS } from "../config/Https.config.js";
 import { hashPassword, comparePassword } from "../utils/Bcrypt.util.js";
 import { AsyncHandler } from "../middlewares/AsyncHandler.middleware.js";
@@ -24,7 +24,7 @@ export const initializeUserTable = async () => {
 
 export const createUser = async (req, res) => {
   try {
-    const validatedData = createUserSchema.parse(req.body);
+    const validatedData = createUserValidator.parse(req.body);
     const { name, email, password, authprovider, role } = validatedData;
 
     const checkEmailQuery = `SELECT COUNT(*) as count FROM users WHERE email = @email`;
@@ -75,7 +75,7 @@ export const createUser = async (req, res) => {
 
 export const login = async (req, res) => {
     try {
-        const validatedData = loginSchema.parse(req.body);
+        const validatedData = loginValidator.parse(req.body);
         const { email, password } = validatedData;
 
         const getUserQuery = `SELECT * FROM users WHERE email = @email`;

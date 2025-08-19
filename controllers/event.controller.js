@@ -3,7 +3,7 @@ import { AsyncHandler } from "../middlewares/AsyncHandler.middleware.js";
 import { EventModel } from "../models/event.model.js";
 import { EventEnrollmentModel } from "../models/event-enrollment.model.js";
 import { executeParameterizedQuery } from "../utils/sql.util.js";
-import { createEventSchema, updateEventSchema } from "../validator/event.validator.js";
+import { createEventValidator, updateEventValidator } from "../validators/event.validators.js";
 
 export const initializeEventTable = async () => {
   try {
@@ -18,7 +18,7 @@ export const initializeEventTable = async () => {
 };
 
 export const createEvents = AsyncHandler(async (req, res) => {
-  const body = createEventSchema.parse(req.body);
+  const body = createEventValidator.parse(req.body);
 
   const {
     OrganizerID,
@@ -237,7 +237,7 @@ export const getEventByOrganizerId = AsyncHandler(async (req, res) => {
 
 export const updateEvent = AsyncHandler(async (req, res) => {
     const { id } = req.params;
-    const body = updateEventSchema.parse(req.body);
+    const body = updateEventValidator.parse(req.body);
 
     const eventIdNum = parseInt(id);
     if (isNaN(eventIdNum) || eventIdNum <= 0) {
