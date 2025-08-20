@@ -269,21 +269,21 @@ export const updateEvent = AsyncHandler(async (req, res) => {
     // Get existing event data and merge with update data
     const existingEvent = eventCheck.recordset[0];
     const updatedData = {
-        Name: body.Name ?? existingEvent.Name,
-        Description: body.Description ?? existingEvent.Description,
-        Theme: body.Theme ?? existingEvent.Theme,
-        Mode: body.Mode ?? existingEvent.Mode,
-        StartDate: body.StartDate ?? existingEvent.StartDate,
-        EndDate: body.EndDate ?? existingEvent.EndDate,
-        SubmissionDeadline: body.SubmissionDeadline ?? existingEvent.SubmissionDeadline,
-        ResultDate: body.ResultDate ?? existingEvent.ResultDate,
-        Rules: body.Rules ?? existingEvent.Rules,
-        Timeline: body.Timeline ?? existingEvent.Timeline,
-        Tracks: body.Tracks ?? existingEvent.Tracks,
-        Prizes: body.Prizes ?? existingEvent.Prizes,
-        MaxTeamSize: body.MaxTeamSize ?? existingEvent.MaxTeamSize,
-        Sponsors: body.Sponsors ?? existingEvent.Sponsors,
-        IsActive: body.IsActive ?? existingEvent.IsActive
+        Name: body.name ?? existingEvent.Name,
+        Description: body.description ?? existingEvent.Description,
+        Theme: body.theme ?? existingEvent.Theme,
+        Mode: body.mode ?? existingEvent.Mode,
+        StartDate: body.startDate ?? existingEvent.StartDate,
+        EndDate: body.endDate ?? existingEvent.EndDate,
+        SubmissionDeadline: body.submissionDeadline ?? existingEvent.SubmissionDeadline,
+        ResultDate: body.resultDate ?? existingEvent.ResultDate,
+        Rules: body.rules ?? existingEvent.Rules,
+        Timeline: body.timeline ?? existingEvent.Timeline,
+        Tracks: body.tracks ?? existingEvent.Tracks,
+        Prizes: body.prizes ?? existingEvent.Prizes,
+        MaxTeamSize: body.maxTeamSize ?? existingEvent.MaxTeamSize,
+        Sponsors: body.sponsors ?? existingEvent.Sponsors,
+        IsActive: body.isActive ?? existingEvent.IsActive
     };
 
     const updateQuery = `
