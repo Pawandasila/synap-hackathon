@@ -760,12 +760,17 @@ export const getEventEnrollments = AsyncHandler(async (req, res) => {
             ee.EnrollmentDate,
             ee.Status,
             ee.TeamID,
+            ee.EventID,
             u.userid,
             u.name,
             u.email,
-            t.TeamName
+            t.TeamName,
+            e.name as EventName,
+            e.startDate as EventStartDate,
+            e.endDate as EventEndDate
         FROM event_enrollments ee
         INNER JOIN users u ON ee.UserID = u.userid
+        INNER JOIN events e ON ee.EventID = e.EventID
         LEFT JOIN teams t ON ee.TeamID = t.TeamId
         WHERE ee.EventID = @eventId AND ee.Status = @status
         ORDER BY ee.EnrollmentDate DESC
