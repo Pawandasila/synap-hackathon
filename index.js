@@ -37,6 +37,7 @@ app.use(
     origin: [
       'http://localhost:5173',
       'http://localhost:3000', 
+      'https://synapse-frontend-beryl.vercel.app',
       Env.FRONTEND_ORIGIN
     ].filter(Boolean),
     credentials: true,
