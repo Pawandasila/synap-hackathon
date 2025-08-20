@@ -6,7 +6,9 @@ import {
   getCertificateById,
   updateCertificate,
   deleteCertificate,
-  bulkIssueCertificates
+  bulkIssueCertificates,
+  getTemplates,
+  generateCertificate
 } from "../controllers/certificate.controller.js";
 import { authenticateToken, requireRole } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validation.middleware.js";
@@ -41,6 +43,15 @@ router.post("/bulk-issue",
 // Get user's certificates
 router.get("/my-certificates", 
   getMyCertificates
+);
+
+// Get certificate templates (all authenticated users)
+router.get("/templates", getTemplates);
+
+// Generate certificate data (organizers only)
+router.post("/generate", 
+  requireRole(["organizer"]), 
+  generateCertificate
 );
 
 // Get certificates by event (organizers and judges only)

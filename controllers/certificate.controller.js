@@ -13,89 +13,91 @@ export const issueCertificate = AsyncHandler(async (req, res) => {
   const { eventId, userId, certificateUrl } = req.body;
   const organizerId = req.user.userid;
 
-  // Validate required fields
   if (!eventId || !userId || !certificateUrl) {
     return res.status(HTTPSTATUS.BAD_REQUEST).json({
       success: false,
-      message: "Event ID, user ID, and certificate URL are required"
+      message: "Event ID, user ID, and certificate URL are required",
     });
   }
 
-  // Validate references exist in SQL database
   const validationErrors = await validateReferences({ eventId, userId });
   if (validationErrors.length > 0) {
     return res.status(HTTPSTATUS.BAD_REQUEST).json({
       success: false,
       message: "Validation failed",
-      errors: validationErrors
+      errors: validationErrors,
     });
   }
 
-  // Check if user is organizer of the event
   const organizerCheck = `
     SELECT COUNT(*) as count FROM events 
     WHERE EventID = @eventId AND OrganizerID = @organizerId
   `;
-  const isOrganizer = await executeParameterizedQuery(organizerCheck, { eventId, organizerId });
+  const isOrganizer = await executeParameterizedQuery(organizerCheck, {
+    eventId,
+    organizerId,
+  });
 
   if (isOrganizer.recordset[0].count === 0) {
     return res.status(HTTPSTATUS.FORBIDDEN).json({
       success: false,
-      message: "You are not authorized to issue certificates for this event"
+      message: "You are not authorized to issue certificates for this event",
     });
   }
 
-  // Check if user was enrolled in the event
   const enrollmentCheck = `
     SELECT COUNT(*) as count FROM event_enrollments 
     WHERE EventID = @eventId AND UserID = @userId AND Status = 'Enrolled'
   `;
-  const wasEnrolled = await executeParameterizedQuery(enrollmentCheck, { eventId, userId });
+  const wasEnrolled = await executeParameterizedQuery(enrollmentCheck, {
+    eventId,
+    userId,
+  });
 
   if (wasEnrolled.recordset[0].count === 0) {
     return res.status(HTTPSTATUS.BAD_REQUEST).json({
       success: false,
-      message: "User was not enrolled in this event"
+      message: "User was not enrolled in this event",
     });
   }
 
-  // Check if certificate already exists
   const existingCertificate = await Certificate.findOne({ eventId, userId });
 
   if (existingCertificate) {
     return res.status(HTTPSTATUS.CONFLICT).json({
       success: false,
-      message: "Certificate already issued for this user in this event"
+      message: "Certificate already issued for this user in this event",
     });
   }
 
-  // Create new certificate
   const certificate = new Certificate({
     eventId,
     userId,
-    certificateUrl
+    certificateUrl,
   });
 
   await certificate.save();
 
-  // Get user and event details for response
   const detailsQuery = `
     SELECT u.name as UserName, u.email as UserEmail, e.Name as EventName
     FROM users u, events e
     WHERE u.userid = @userId AND e.EventID = @eventId
   `;
-  
-  const detailsResult = await executeParameterizedQuery(detailsQuery, { userId, eventId });
+
+  const detailsResult = await executeParameterizedQuery(detailsQuery, {
+    userId,
+    eventId,
+  });
 
   const certificateWithDetails = {
     ...certificate.toObject(),
-    userDetails: detailsResult.recordset[0] || null
+    userDetails: detailsResult.recordset[0] || null,
   };
 
   res.status(HTTPSTATUS.CREATED).json({
     success: true,
     message: "Certificate issued successfully",
-    data: certificateWithDetails
+    data: certificateWithDetails,
   });
 });
 
@@ -109,54 +111,57 @@ export const getCertificatesByEvent = AsyncHandler(async (req, res) => {
   const userId = req.user.userid;
   const userRole = req.user.role;
 
-  // Validate event exists
-  const validationErrors = await validateReferences({ eventId: parseInt(eventId) });
+  const validationErrors = await validateReferences({
+    eventId: parseInt(eventId),
+  });
   if (validationErrors.length > 0) {
     return res.status(HTTPSTATUS.BAD_REQUEST).json({
       success: false,
       message: "Event not found",
-      errors: validationErrors
+      errors: validationErrors,
     });
   }
 
-  // Check if user is organizer of the event or is a judge
   let hasAccess = false;
-  
-  if (userRole === 'judge') {
+
+  if (userRole === "judge") {
     hasAccess = true;
   } else {
     const organizerCheck = `
       SELECT COUNT(*) as count FROM events 
       WHERE EventID = @eventId AND OrganizerID = @userId
     `;
-    const isOrganizer = await executeParameterizedQuery(organizerCheck, { eventId, userId });
+    const isOrganizer = await executeParameterizedQuery(organizerCheck, {
+      eventId,
+      userId,
+    });
     hasAccess = isOrganizer.recordset[0].count > 0;
   }
 
   if (!hasAccess) {
     return res.status(HTTPSTATUS.FORBIDDEN).json({
       success: false,
-      message: "You are not authorized to view certificates for this event"
+      message: "You are not authorized to view certificates for this event",
     });
   }
 
-  const certificates = await Certificate.find({ eventId: parseInt(eventId) })
-    .sort({ issuedAt: -1 });
+  const certificates = await Certificate.find({
+    eventId: parseInt(eventId),
+  }).sort({ issuedAt: -1 });
 
-  // Get user details for each certificate
   const certificatesWithUserDetails = await Promise.all(
     certificates.map(async (certificate) => {
       const userQuery = `
         SELECT name, email FROM users WHERE userid = @userId
       `;
-      
-      const userResult = await executeParameterizedQuery(userQuery, { 
-        userId: certificate.userId 
+
+      const userResult = await executeParameterizedQuery(userQuery, {
+        userId: certificate.userId,
       });
 
       return {
         ...certificate.toObject(),
-        userDetails: userResult.recordset[0] || null
+        userDetails: userResult.recordset[0] || null,
       };
     })
   );
@@ -165,7 +170,7 @@ export const getCertificatesByEvent = AsyncHandler(async (req, res) => {
     success: true,
     message: "Certificates retrieved successfully",
     data: certificatesWithUserDetails,
-    count: certificatesWithUserDetails.length
+    count: certificatesWithUserDetails.length,
   });
 });
 
@@ -176,23 +181,23 @@ export const getCertificatesByEvent = AsyncHandler(async (req, res) => {
 export const getMyCertificates = AsyncHandler(async (req, res) => {
   const userId = req.user.userid;
 
-  const certificates = await Certificate.find({ userId })
-    .sort({ issuedAt: -1 });
+  const certificates = await Certificate.find({ userId }).sort({
+    issuedAt: -1,
+  });
 
-  // Get event details for each certificate
   const certificatesWithEventDetails = await Promise.all(
     certificates.map(async (certificate) => {
       const eventQuery = `
         SELECT Name as EventName, StartDate, EndDate FROM events WHERE EventID = @eventId
       `;
-      
-      const eventResult = await executeParameterizedQuery(eventQuery, { 
-        eventId: certificate.eventId 
+
+      const eventResult = await executeParameterizedQuery(eventQuery, {
+        eventId: certificate.eventId,
       });
 
       return {
         ...certificate.toObject(),
-        eventDetails: eventResult.recordset[0] || null
+        eventDetails: eventResult.recordset[0] || null,
       };
     })
   );
@@ -201,7 +206,7 @@ export const getMyCertificates = AsyncHandler(async (req, res) => {
     success: true,
     message: "Your certificates retrieved successfully",
     data: certificatesWithEventDetails,
-    count: certificatesWithEventDetails.length
+    count: certificatesWithEventDetails.length,
   });
 });
 
@@ -218,11 +223,10 @@ export const getCertificateById = AsyncHandler(async (req, res) => {
   if (!certificate) {
     return res.status(HTTPSTATUS.NOT_FOUND).json({
       success: false,
-      message: "Certificate not found"
+      message: "Certificate not found",
     });
   }
 
-  // Check if user owns the certificate or is organizer of the event
   const accessCheck = `
     SELECT COUNT(*) as count FROM (
       SELECT 1 WHERE @userId = @certificateUserId
@@ -230,42 +234,41 @@ export const getCertificateById = AsyncHandler(async (req, res) => {
       SELECT 1 FROM events WHERE EventID = @eventId AND OrganizerID = @userId
     ) as access_check
   `;
-  
-  const hasAccess = await executeParameterizedQuery(accessCheck, { 
-    userId, 
+
+  const hasAccess = await executeParameterizedQuery(accessCheck, {
+    userId,
     certificateUserId: certificate.userId,
-    eventId: certificate.eventId 
+    eventId: certificate.eventId,
   });
 
   if (hasAccess.recordset[0].count === 0) {
     return res.status(HTTPSTATUS.FORBIDDEN).json({
       success: false,
-      message: "You don't have access to this certificate"
+      message: "You don't have access to this certificate",
     });
   }
 
-  // Get full details
   const detailsQuery = `
     SELECT u.name as UserName, u.email as UserEmail, 
            e.Name as EventName, e.StartDate, e.EndDate
     FROM users u, events e
     WHERE u.userid = @userId AND e.EventID = @eventId
   `;
-  
-  const detailsResult = await executeParameterizedQuery(detailsQuery, { 
-    userId: certificate.userId, 
-    eventId: certificate.eventId 
+
+  const detailsResult = await executeParameterizedQuery(detailsQuery, {
+    userId: certificate.userId,
+    eventId: certificate.eventId,
   });
 
   const certificateWithDetails = {
     ...certificate.toObject(),
-    details: detailsResult.recordset[0] || null
+    details: detailsResult.recordset[0] || null,
   };
 
   res.status(HTTPSTATUS.OK).json({
     success: true,
     message: "Certificate retrieved successfully",
-    data: certificateWithDetails
+    data: certificateWithDetails,
   });
 });
 
@@ -282,7 +285,7 @@ export const updateCertificate = AsyncHandler(async (req, res) => {
   if (!certificateUrl) {
     return res.status(HTTPSTATUS.BAD_REQUEST).json({
       success: false,
-      message: "Certificate URL is required"
+      message: "Certificate URL is required",
     });
   }
 
@@ -291,24 +294,23 @@ export const updateCertificate = AsyncHandler(async (req, res) => {
   if (!certificate) {
     return res.status(HTTPSTATUS.NOT_FOUND).json({
       success: false,
-      message: "Certificate not found"
+      message: "Certificate not found",
     });
   }
 
-  // Check if user is organizer of the event
   const organizerCheck = `
     SELECT COUNT(*) as count FROM events 
     WHERE EventID = @eventId AND OrganizerID = @organizerId
   `;
-  const isOrganizer = await executeParameterizedQuery(organizerCheck, { 
-    eventId: certificate.eventId, 
-    organizerId 
+  const isOrganizer = await executeParameterizedQuery(organizerCheck, {
+    eventId: certificate.eventId,
+    organizerId,
   });
 
   if (isOrganizer.recordset[0].count === 0) {
     return res.status(HTTPSTATUS.FORBIDDEN).json({
       success: false,
-      message: "You are not authorized to update this certificate"
+      message: "You are not authorized to update this certificate",
     });
   }
 
@@ -321,7 +323,7 @@ export const updateCertificate = AsyncHandler(async (req, res) => {
   res.status(HTTPSTATUS.OK).json({
     success: true,
     message: "Certificate updated successfully",
-    data: updatedCertificate
+    data: updatedCertificate,
   });
 });
 
@@ -339,24 +341,23 @@ export const deleteCertificate = AsyncHandler(async (req, res) => {
   if (!certificate) {
     return res.status(HTTPSTATUS.NOT_FOUND).json({
       success: false,
-      message: "Certificate not found"
+      message: "Certificate not found",
     });
   }
 
-  // Check if user is organizer of the event
   const organizerCheck = `
     SELECT COUNT(*) as count FROM events 
     WHERE EventID = @eventId AND OrganizerID = @organizerId
   `;
-  const isOrganizer = await executeParameterizedQuery(organizerCheck, { 
-    eventId: certificate.eventId, 
-    organizerId 
+  const isOrganizer = await executeParameterizedQuery(organizerCheck, {
+    eventId: certificate.eventId,
+    organizerId,
   });
 
   if (isOrganizer.recordset[0].count === 0) {
     return res.status(HTTPSTATUS.FORBIDDEN).json({
       success: false,
-      message: "You are not authorized to delete this certificate"
+      message: "You are not authorized to delete this certificate",
     });
   }
 
@@ -364,7 +365,7 @@ export const deleteCertificate = AsyncHandler(async (req, res) => {
 
   res.status(HTTPSTATUS.OK).json({
     success: true,
-    message: "Certificate deleted successfully"
+    message: "Certificate deleted successfully",
   });
 });
 
@@ -377,21 +378,25 @@ export const bulkIssueCertificates = AsyncHandler(async (req, res) => {
   const { eventId, userIds, certificateUrl } = req.body;
   const organizerId = req.user.userid;
 
-  // Validate required fields
-  if (!eventId || !userIds || !Array.isArray(userIds) || userIds.length === 0 || !certificateUrl) {
+  if (
+    !eventId ||
+    !userIds ||
+    !Array.isArray(userIds) ||
+    userIds.length === 0 ||
+    !certificateUrl
+  ) {
     return res.status(HTTPSTATUS.BAD_REQUEST).json({
       success: false,
-      message: "Event ID, user IDs array, and certificate URL are required"
+      message: "Event ID, user IDs array, and certificate URL are required",
     });
   }
 
-  // Validate event exists and user is organizer
   const validationErrors = await validateReferences({ eventId });
   if (validationErrors.length > 0) {
     return res.status(HTTPSTATUS.BAD_REQUEST).json({
       success: false,
       message: "Event not found",
-      errors: validationErrors
+      errors: validationErrors,
     });
   }
 
@@ -399,60 +404,67 @@ export const bulkIssueCertificates = AsyncHandler(async (req, res) => {
     SELECT COUNT(*) as count FROM events 
     WHERE EventID = @eventId AND OrganizerID = @organizerId
   `;
-  const isOrganizer = await executeParameterizedQuery(organizerCheck, { eventId, organizerId });
+  const isOrganizer = await executeParameterizedQuery(organizerCheck, {
+    eventId,
+    organizerId,
+  });
 
   if (isOrganizer.recordset[0].count === 0) {
     return res.status(HTTPSTATUS.FORBIDDEN).json({
       success: false,
-      message: "You are not authorized to issue certificates for this event"
+      message: "You are not authorized to issue certificates for this event",
     });
   }
 
   const results = {
     issued: [],
     skipped: [],
-    errors: []
+    errors: [],
   };
 
   for (const userId of userIds) {
     try {
-      // Validate user exists
       const userValidationErrors = await validateReferences({ userId });
       if (userValidationErrors.length > 0) {
         results.errors.push({ userId, error: "User not found" });
         continue;
       }
 
-      // Check if user was enrolled
       const enrollmentCheck = `
         SELECT COUNT(*) as count FROM event_enrollments 
         WHERE EventID = @eventId AND UserID = @userId AND Status = 'Enrolled'
       `;
-      const wasEnrolled = await executeParameterizedQuery(enrollmentCheck, { eventId, userId });
+      const wasEnrolled = await executeParameterizedQuery(enrollmentCheck, {
+        eventId,
+        userId,
+      });
 
       if (wasEnrolled.recordset[0].count === 0) {
-        results.errors.push({ userId, error: "User was not enrolled in this event" });
+        results.errors.push({
+          userId,
+          error: "User was not enrolled in this event",
+        });
         continue;
       }
 
-      // Check if certificate already exists
-      const existingCertificate = await Certificate.findOne({ eventId, userId });
+      const existingCertificate = await Certificate.findOne({
+        eventId,
+        userId,
+      });
 
       if (existingCertificate) {
         results.skipped.push({ userId, reason: "Certificate already exists" });
         continue;
       }
 
-      // Create certificate
       const certificate = new Certificate({
         eventId,
         userId,
-        certificateUrl
+        certificateUrl,
       });
 
       await certificate.save();
       results.issued.push({ userId, certificateId: certificate._id });
-
     } catch (error) {
       results.errors.push({ userId, error: error.message });
     }
@@ -466,7 +478,142 @@ export const bulkIssueCertificates = AsyncHandler(async (req, res) => {
       total: userIds.length,
       issued: results.issued.length,
       skipped: results.skipped.length,
-      errors: results.errors.length
-    }
+      errors: results.errors.length,
+    },
+  });
+});
+
+/**
+ * Get certificate templates
+ * GET /certificates/templates
+ * All authenticated users
+ */
+export const getTemplates = AsyncHandler(async (req, res) => {
+  const templates = [
+    {
+      id: "template1",
+      name: "Classic Blue",
+      preview: "/cert_templates/Template1.png",
+    },
+    {
+      id: "template2",
+      name: "Ocean Blue",
+      preview: "/cert_templates/Template2.png",
+    },
+    {
+      id: "template3",
+      name: "Elegant Black",
+      preview: "/cert_templates/Template3.png",
+    },
+    {
+      id: "template4",
+      name: "Simple White",
+      preview: "/cert_templates/Template4.jpeg",
+    },
+    {
+      id: "template5",
+      name: "Royal Red",
+      preview: "/cert_templates/Template5.png",
+    },
+    {
+      id: "template6",
+      name: "Purple Galaxy",
+      preview: "/cert_templates/Template6.png",
+    },
+    {
+      id: "template7",
+      name: "Sunset Orange",
+      preview: "/cert_templates/Template7.png",
+    },
+    {
+      id: "template8",
+      name: "Purple Professional",
+      preview: "/cert_templates/Template8.png",
+    },
+    {
+      id: "template9",
+      name: "Cyber Blue",
+      preview: "/cert_templates/Template9.gif",
+    },
+    {
+      id: "template10",
+      name: "Modern Gradient",
+      preview: "/cert_templates/Template10.jpg",
+    },
+    {
+      id: "template11",
+      name: "Clean Minimal",
+      preview: "/cert_templates/Template11.png",
+    },
+  ];
+
+  res.status(HTTPSTATUS.OK).json({
+    success: true,
+    count: templates.length,
+    data: templates,
+  });
+});
+
+/**
+ * Generate certificate data (for frontend preview/download)
+ * POST /certificates/generate
+ * Organizers only
+ */
+export const generateCertificate = AsyncHandler(async (req, res) => {
+  const {
+    recipientName,
+    eventId,
+    template,
+    heading,
+    description,
+    authorName,
+    logoUrl,
+    certificateType,
+  } = req.body;
+
+  if (!recipientName || !eventId || !template) {
+    return res.status(HTTPSTATUS.BAD_REQUEST).json({
+      success: false,
+      message: "Recipient name, event ID, and template are required",
+    });
+  }
+
+  const organizerId = req.user.userid;
+  const organizerCheck = `
+    SELECT COUNT(*) as count FROM events 
+    WHERE EventID = @eventId AND OrganizerID = @organizerId
+  `;
+  const isOrganizer = await executeParameterizedQuery(organizerCheck, {
+    eventId,
+    organizerId,
+  });
+
+  if (isOrganizer.recordset[0].count === 0) {
+    return res.status(HTTPSTATUS.FORBIDDEN).json({
+      success: false,
+      message: "You are not authorized to generate certificates for this event",
+    });
+  }
+
+  const certificateData = {
+    id: `cert_${Date.now()}`,
+    recipientName,
+    eventId,
+    template,
+    heading: heading || "Certificate of Achievement",
+    description:
+      description || "for outstanding participation and contribution",
+    authorName: authorName || req.user.name,
+    logoUrl,
+    certificateType: certificateType || "participant",
+    generatedBy: req.user.userid,
+    generatedAt: new Date(),
+    downloadUrl: `/certificates/download/${Date.now()}.pdf`,
+  };
+
+  res.status(HTTPSTATUS.CREATED).json({
+    success: true,
+    message: "Certificate generated successfully",
+    data: certificateData,
   });
 });

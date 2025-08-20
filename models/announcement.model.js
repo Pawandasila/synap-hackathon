@@ -23,14 +23,26 @@ const announcementSchema = new mongoose.Schema(
         message: 'Referenced user does not exist in SQL database'
       }
     },
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+      maxLength: 200
+    },
     message: {
       type: String,
       required: true,
       trim: true,
+      maxLength: 1000
+    },
+    priority: {
+      type: String,
+      enum: ['low', 'medium', 'high'],
+      default: 'medium'
     },
     isImportant: {
       type: Boolean,
-      default: true,
+      default: false,
     },
   },
   { timestamps: true }

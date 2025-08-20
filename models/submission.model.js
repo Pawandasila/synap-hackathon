@@ -58,6 +58,48 @@ const submissionSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    // Judging fields
+    judgingStatus: {
+      type: String,
+      enum: ['pending', 'in-review', 'judged'],
+      default: 'pending'
+    },
+    judgeId: {
+      type: Number, // References users table
+      default: null
+    },
+    scores: {
+      innovation: { type: Number, min: 0, max: 10, default: null },
+      technical: { type: Number, min: 0, max: 10, default: null },
+      presentation: { type: Number, min: 0, max: 10, default: null },
+      impact: { type: Number, min: 0, max: 10, default: null },
+      overall: { type: Number, min: 0, max: 10, default: null }
+    },
+    totalScore: {
+      type: Number,
+      default: null
+    },
+    judgeComments: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    rank: {
+      type: Number,
+      default: null
+    },
+    isWinner: {
+      type: Boolean,
+      default: false
+    },
+    prize: {
+      type: String,
+      default: null // "1st Place", "2nd Place", "Best Innovation", etc.
+    },
+    judgedAt: {
+      type: Date,
+      default: null
+    }
   },
   { timestamps: true }
 );

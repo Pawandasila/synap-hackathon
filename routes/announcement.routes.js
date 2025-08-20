@@ -5,7 +5,9 @@ import {
   getAnnouncementById,
   updateAnnouncement,
   deleteAnnouncement,
-  getMyImportantAnnouncements
+  getMyImportantAnnouncements,
+  getAllAnnouncementsForOrganizer,
+  getAllAnnouncementsForParticipant
 } from "../controllers/announcement.controller.js";
 import { authenticateToken, requireRole } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validation.middleware.js";
@@ -29,10 +31,22 @@ router.post("/",
   createAnnouncement
 );
 
+// Get all announcements for organizer
+router.get("/", 
+  requireRole(["organizer"]), 
+  getAllAnnouncementsForOrganizer
+);
+
 // Get user's important announcements
 router.get("/my-important", 
   requireRole(["participant"]), 
   getMyImportantAnnouncements
+);
+
+// Get all announcements for participant
+router.get("/my-all", 
+  requireRole(["participant"]), 
+  getAllAnnouncementsForParticipant
 );
 
 // Get announcements by event

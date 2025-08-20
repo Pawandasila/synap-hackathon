@@ -6,7 +6,9 @@ import {
   getSubmissionById,
   updateSubmission,
   deleteSubmission,
-  getMySubmissions
+  getMySubmissions,
+  judgeSubmission,
+  getAllSubmissions
 } from "../controllers/submission.controller.js";
 import { authenticateToken, requireRole } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validation.middleware.js";
@@ -23,6 +25,12 @@ const router = express.Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+
+// Get all submissions (organizers and judges only)
+router.get("/", 
+  requireRole(["organizer", "judge"]), 
+  getAllSubmissions
+);
 
 // Create submission (participants only)
 router.post("/", 
@@ -69,6 +77,12 @@ router.delete("/:id",
   requireRole(["participant"]), 
   validate(deleteSubmissionWithValidation), 
   deleteSubmission
+);
+
+// Judge submission (organizers and judges only)
+router.patch("/:id/judge", 
+  requireRole(["organizer", "judge"]), 
+  judgeSubmission
 );
 
 export default router;

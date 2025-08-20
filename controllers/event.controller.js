@@ -994,7 +994,7 @@ export const getEventForParticipant = AsyncHandler(async (req, res) => {
             t.TeamName,
             t.CreatedAt as TeamCreatedAt,
             tm.Role,
-            ee.EnrolledAt
+            ee.EnrollmentDate
         FROM event_enrollments ee
         INNER JOIN teams t ON ee.TeamID = t.TeamId
         INNER JOIN team_members tm ON t.TeamId = tm.TeamId AND tm.UserId = @UserId
@@ -1041,7 +1041,7 @@ export const getEventForParticipant = AsyncHandler(async (req, res) => {
 
         enrollmentData = {
             isEnrolled: true,
-            enrolledAt: enrollment.EnrolledAt,
+            enrolledAt: enrollment.EnrollmentDate,
             userRole: enrollment.Role,
             team: teamDetails
         };

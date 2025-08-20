@@ -35,6 +35,29 @@ export const createSubmission = AsyncHandler(async (req, res) => {
     });
   }
 
+  // Check if event is active to allow submissions
+  const eventStatusQuery = `
+    SELECT IsActive FROM events WHERE EventID = @eventId
+  `;
+  const eventStatusResult = await executeParameterizedQuery(eventStatusQuery, {
+    eventId,
+  });
+
+  if (eventStatusResult.recordset.length === 0) {
+    return res.status(HTTPSTATUS.NOT_FOUND).json({
+      success: false,
+      message: "Event not found",
+    });
+  }
+
+  const eventIsActive = eventStatusResult.recordset[0].IsActive;
+  if (!eventIsActive) {
+    return res.status(HTTPSTATUS.FORBIDDEN).json({
+      success: false,
+      message: `Submissions are not allowed for inactive events. Event must be active to accept submissions.`,
+    });
+  }
+
   const teamMemberCheck = `
     SELECT COUNT(*) as count FROM team_members 
     WHERE TeamId = @teamId AND UserId = @userId
@@ -301,6 +324,160 @@ export const deleteSubmission = AsyncHandler(async (req, res) => {
   res.status(HTTPSTATUS.OK).json({
     success: true,
     message: "Submission deleted successfully",
+  });
+});
+
+// Judge a submission
+export const judgeSubmission = AsyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { 
+    scores, 
+    totalScore, 
+    judgeComments, 
+    isWinner, 
+    prize, 
+    judgingStatus = 'judged' 
+  } = req.body;
+  const judgeId = req.user.userid;
+
+  // Validate required fields
+  if (!scores || !totalScore) {
+    return res.status(HTTPSTATUS.BAD_REQUEST).json({
+      success: false,
+      message: "Scores and total score are required"
+    });
+  }
+
+  // Find the submission
+  const submission = await Submission.findById(id);
+  if (!submission) {
+    return res.status(HTTPSTATUS.NOT_FOUND).json({
+      success: false,
+      message: "Submission not found"
+    });
+  }
+
+  // Check if user is organizer of the event
+  const organizerCheck = `
+    SELECT COUNT(*) as count FROM events 
+    WHERE EventID = @eventId AND OrganizerID = @judgeId
+  `;
+  const isOrganizer = await executeParameterizedQuery(organizerCheck, { 
+    eventId: submission.eventId, 
+    judgeId 
+  });
+
+  if (isOrganizer.recordset[0].count === 0) {
+    return res.status(HTTPSTATUS.FORBIDDEN).json({
+      success: false,
+      message: "You are not authorized to judge this submission"
+    });
+  }
+
+  // Update submission with judging data
+  const updatedSubmission = await Submission.findByIdAndUpdate(
+    id,
+    {
+      judgingStatus,
+      judgeId,
+      scores,
+      totalScore,
+      judgeComments: judgeComments || '',
+      isWinner: isWinner || false,
+      prize: isWinner ? prize : null,
+      judgedAt: new Date()
+    },
+    { new: true, runValidators: true }
+  );
+
+  res.status(HTTPSTATUS.OK).json({
+    success: true,
+    message: "Submission judged successfully",
+    data: updatedSubmission
+  });
+});
+
+// Get all submissions for organizers/judges
+export const getAllSubmissions = AsyncHandler(async (req, res) => {
+  const userId = req.user.userid;
+  const userRole = req.user.role;
+
+  let submissions = [];
+
+  if (userRole === 'organizer') {
+    // Get all events organized by this user
+    const eventsQuery = `
+      SELECT EventID FROM events 
+      WHERE OrganizerID = @userId
+    `;
+    const eventsResult = await executeParameterizedQuery(eventsQuery, { userId });
+    const eventIds = eventsResult.recordset.map(row => row.EventID);
+
+    if (eventIds.length > 0) {
+      submissions = await Submission.find({ eventId: { $in: eventIds } })
+        .sort({ submittedAt: -1 })
+        .lean();
+    }
+  } else if (userRole === 'judge') {
+    // Judges can see all submissions
+    submissions = await Submission.find({})
+      .sort({ submittedAt: -1 })
+      .lean();
+  } else {
+    return res.status(HTTPSTATUS.FORBIDDEN).json({
+      success: false,
+      message: "Access denied. Only organizers and judges can view all submissions."
+    });
+  }
+
+  // Get additional details for each submission
+  const submissionsWithDetails = await Promise.all(
+    submissions.map(async (submission) => {
+      // Get event details
+      const eventQuery = `
+        SELECT Name as EventName FROM events 
+        WHERE EventID = @eventId
+      `;
+      const eventResult = await executeParameterizedQuery(eventQuery, { 
+        eventId: submission.eventId 
+      });
+
+      // Get team details
+      const teamQuery = `
+        SELECT TeamName FROM teams 
+        WHERE TeamId = @teamId
+      `;
+      const teamResult = await executeParameterizedQuery(teamQuery, { 
+        teamId: submission.teamId 
+      });
+
+      // Get judge name if judged
+      let judgeName = null;
+      if (submission.judgeId) {
+        const judgeQuery = `
+          SELECT name as JudgeName FROM users 
+          WHERE userid = @judgeId
+        `;
+        const judgeResult = await executeParameterizedQuery(judgeQuery, { 
+          judgeId: submission.judgeId 
+        });
+        judgeName = judgeResult.recordset[0]?.JudgeName || null;
+      }
+
+      return {
+        ...submission,
+        eventName: eventResult.recordset[0]?.EventName || null,
+        teamName: teamResult.recordset[0]?.TeamName || null,
+        judgeName
+      };
+    })
+  );
+
+  res.status(HTTPSTATUS.OK).json({
+    success: true,
+    message: "Submissions retrieved successfully",
+    data: submissionsWithDetails,
+    count: submissionsWithDetails.length
   });
 });
 
