@@ -2,11 +2,6 @@ import { z } from "zod";
 
 // Event Creation Validator
 export const createEventValidator = z.object({
-    organizerID: z
-        .number({ required_error: "Organizer ID is required" })
-        .int("Organizer ID must be an integer")
-        .positive("Organizer ID must be positive"),
-    
     name: z
         .string({ required_error: "Event name is required" })
         .min(3, "Event name must be at least 3 characters long")

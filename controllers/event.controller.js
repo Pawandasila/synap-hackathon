@@ -20,8 +20,10 @@ export const initializeEventTable = async () => {
 export const createEvents = AsyncHandler(async (req, res) => {
   const body = createEventValidator.parse(req.body);
 
+  // Use the authenticated user's ID as the organizer ID
+  const organizerID = req.user.userid;
+
   const {
-    organizerID,
     name,
     description,
     theme,
