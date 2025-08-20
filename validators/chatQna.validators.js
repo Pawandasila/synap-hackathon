@@ -35,9 +35,16 @@ export const updateChatMessageValidator = z.object({
         .refine((msg) => msg.length > 0, "Message cannot be empty")
 });
 
-// Chat ID Validator (for params)
+// Chat ID Validator (for params using :id)
 export const chatIdValidator = z.object({
     id: z
+        .string()
+        .regex(/^[0-9a-fA-F]{24}$/, "Invalid chat message ID format")
+});
+
+// Chat ID Validator (for params using :chatId)
+export const chatIdParamValidator = z.object({
+    chatId: z
         .string()
         .regex(/^[0-9a-fA-F]{24}$/, "Invalid chat message ID format")
 });
@@ -85,7 +92,7 @@ export const createChatMessageWithValidation = {
 
 export const addReplyWithValidation = {
     body: addReplyValidator,
-    params: chatIdValidator
+    params: chatIdParamValidator
 };
 
 export const updateChatMessageWithValidation = {

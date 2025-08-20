@@ -30,21 +30,18 @@ export const createChatMessage = AsyncHandler(async (req, res) => {
     });
   }
 
-  // Check if user has access to this event (enrolled or organizer)
-  const accessCheck = `
-    SELECT COUNT(*) as count FROM (
-      SELECT 1 FROM events WHERE EventID = @eventId AND OrganizerID = @fromUserId
-      UNION
-      SELECT 1 FROM event_enrollments WHERE EventID = @eventId AND UserID = @fromUserId AND Status = 'Enrolled'
-    ) as access_check
+  // Check if event exists and is active (anyone can ask questions about active events)
+  const eventCheck = `
+    SELECT COUNT(*) as count FROM events 
+    WHERE EventID = @eventId AND IsActive = 1
   `;
   
-  const hasAccess = await executeParameterizedQuery(accessCheck, { eventId, fromUserId });
+  const eventExists = await executeParameterizedQuery(eventCheck, { eventId });
 
-  if (hasAccess.recordset[0].count === 0) {
-    return res.status(HTTPSTATUS.FORBIDDEN).json({
+  if (eventExists.recordset[0].count === 0) {
+    return res.status(HTTPSTATUS.NOT_FOUND).json({
       success: false,
-      message: "You don't have access to this event's chat"
+      message: "Event not found or not active"
     });
   }
 
@@ -95,21 +92,18 @@ export const getChatByEvent = AsyncHandler(async (req, res) => {
     });
   }
 
-  // Check if user has access to this event
-  const accessCheck = `
-    SELECT COUNT(*) as count FROM (
-      SELECT 1 FROM events WHERE EventID = @eventId AND OrganizerID = @userId
-      UNION
-      SELECT 1 FROM event_enrollments WHERE EventID = @eventId AND UserID = @userId AND Status = 'Enrolled'
-    ) as access_check
+  // Check if event exists and is active (anyone can view Q&A for active events)
+  const eventCheck = `
+    SELECT COUNT(*) as count FROM events 
+    WHERE EventID = @eventId AND IsActive = 1
   `;
   
-  const hasAccess = await executeParameterizedQuery(accessCheck, { eventId, userId });
+  const eventExists = await executeParameterizedQuery(eventCheck, { eventId });
 
-  if (hasAccess.recordset[0].count === 0) {
-    return res.status(HTTPSTATUS.FORBIDDEN).json({
+  if (eventExists.recordset[0].count === 0) {
+    return res.status(HTTPSTATUS.NOT_FOUND).json({
       success: false,
-      message: "You don't have access to this event's chat"
+      message: "Event not found or not active"
     });
   }
 
@@ -195,24 +189,20 @@ export const addReplyToChat = AsyncHandler(async (req, res) => {
     });
   }
 
-  // Check if user has access to this event
-  const accessCheck = `
-    SELECT COUNT(*) as count FROM (
-      SELECT 1 FROM events WHERE EventID = @eventId AND OrganizerID = @fromUserId
-      UNION
-      SELECT 1 FROM event_enrollments WHERE EventID = @eventId AND UserID = @fromUserId AND Status = 'Enrolled'
-    ) as access_check
+  // Check if user has access to this event (event must be active)
+  const eventCheck = `
+    SELECT COUNT(*) as count FROM events 
+    WHERE EventID = @eventId AND IsActive = 1
   `;
   
-  const hasAccess = await executeParameterizedQuery(accessCheck, { 
-    eventId: chatMessage.eventId, 
-    fromUserId 
+  const eventExists = await executeParameterizedQuery(eventCheck, { 
+    eventId: chatMessage.eventId
   });
 
-  if (hasAccess.recordset[0].count === 0) {
-    return res.status(HTTPSTATUS.FORBIDDEN).json({
+  if (eventExists.recordset[0].count === 0) {
+    return res.status(HTTPSTATUS.NOT_FOUND).json({
       success: false,
-      message: "You don't have access to reply in this event's chat"
+      message: "Event not found or not active"
     });
   }
 
@@ -264,24 +254,20 @@ export const getChatById = AsyncHandler(async (req, res) => {
     });
   }
 
-  // Check if user has access to this event
-  const accessCheck = `
-    SELECT COUNT(*) as count FROM (
-      SELECT 1 FROM events WHERE EventID = @eventId AND OrganizerID = @userId
-      UNION
-      SELECT 1 FROM event_enrollments WHERE EventID = @eventId AND UserID = @userId AND Status = 'Enrolled'
-    ) as access_check
+  // Check if event exists and is active (anyone can view Q&A for active events)
+  const eventCheck = `
+    SELECT COUNT(*) as count FROM events 
+    WHERE EventID = @eventId AND IsActive = 1
   `;
   
-  const hasAccess = await executeParameterizedQuery(accessCheck, { 
-    eventId: chatMessage.eventId, 
-    userId 
+  const eventExists = await executeParameterizedQuery(eventCheck, { 
+    eventId: chatMessage.eventId
   });
 
-  if (hasAccess.recordset[0].count === 0) {
-    return res.status(HTTPSTATUS.FORBIDDEN).json({
+  if (eventExists.recordset[0].count === 0) {
+    return res.status(HTTPSTATUS.NOT_FOUND).json({
       success: false,
-      message: "You don't have access to this chat message"
+      message: "Event not found or not active"
     });
   }
 
@@ -388,9 +374,9 @@ export const deleteChatMessage = AsyncHandler(async (req, res) => {
   // Check if user is the author or event organizer
   const authCheck = `
     SELECT COUNT(*) as count FROM (
-      SELECT 1 WHERE @userId = @fromUserId
+      SELECT 1 as isAuth WHERE @userId = @fromUserId
       UNION
-      SELECT 1 FROM events WHERE EventID = @eventId AND OrganizerID = @userId
+      SELECT 1 as isAuth FROM events WHERE EventID = @eventId AND OrganizerID = @userId
     ) as auth_check
   `;
   
@@ -498,9 +484,9 @@ export const deleteChatReply = AsyncHandler(async (req, res) => {
   // Check if user is the reply author or event organizer
   const authCheck = `
     SELECT COUNT(*) as count FROM (
-      SELECT 1 WHERE @userId = @fromUserId
+      SELECT 1 as isAuth WHERE @userId = @fromUserId
       UNION
-      SELECT 1 FROM events WHERE EventID = @eventId AND OrganizerID = @userId
+      SELECT 1 as isAuth FROM events WHERE EventID = @eventId AND OrganizerID = @userId
     ) as auth_check
   `;
   

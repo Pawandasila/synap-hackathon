@@ -148,6 +148,11 @@ npm run db:migrate  # Run database migrations (if implemented)
 npm run db:seed     # Seed database with sample data (if implemented)
 ```
 
+```
+![Image](https://github.com/user-attachments/assets/2fcd3ab2-eba7-4fd5-9c39-56f3d8dd6144)
+```
+
+
 ## 🏗️ Project Structure
 
 ```
