@@ -21,27 +21,29 @@ export const createEvents = AsyncHandler(async (req, res) => {
   const body = createEventValidator.parse(req.body);
 
   const {
-    OrganizerID,
-    Name,
-    Description,
-    Theme,
-    Mode,
-    StartDate,
-    EndDate,
-    SubmissionDeadline,
-    ResultDate,
-    Rules,
-    Timeline,
-    Tracks,
-    Prizes,
-    MaxTeamSize,
-    Sponsors,
-    IsActive,
+    organizerID,
+    name,
+    description,
+    theme,
+    mode,
+    startDate,
+    endDate,
+    submissionDeadline,
+    resultDate,
+    rules,
+    timeline,
+    tracks,
+    prizes,
+    maxTeamSize,
+    sponsors,
+    isActive = true,
   } = body;
+
+  console.log(body);
 
   const organizerCheck = `SELECT COUNT(*) as count FROM users WHERE userid = @OrganizerID AND role = 'organizer'`;
   const organizerExists = await executeParameterizedQuery(organizerCheck, {
-    OrganizerID,
+    OrganizerID: organizerID,
   });
 
   if (organizerExists.recordset[0].count === 0) {
@@ -60,22 +62,22 @@ export const createEvents = AsyncHandler(async (req, res) => {
   `;
 
   const result = await executeParameterizedQuery(insertRecord, {
-    OrganizerID,
-    Name,
-    Description,
-    Theme,
-    Mode,
-    StartDate,
-    EndDate,
-    SubmissionDeadline,
-    ResultDate,
-    Rules,
-    Timeline,
-    Tracks,
-    Prizes,
-    MaxTeamSize,
-    Sponsors,
-    IsActive,
+    OrganizerID: organizerID,
+    Name: name,
+    Description: description,
+    Theme: theme,
+    Mode: mode,
+    StartDate: startDate,
+    EndDate: endDate,
+    SubmissionDeadline: submissionDeadline,
+    ResultDate: resultDate,
+    Rules: rules,
+    Timeline: timeline,
+    Tracks: tracks,
+    Prizes: prizes,
+    MaxTeamSize: maxTeamSize,
+    Sponsors: sponsors,
+    IsActive: isActive,
   });
 
   return res.status(HTTPSTATUS.CREATED).json({
