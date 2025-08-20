@@ -964,3 +964,102 @@ export const updateEnrollmentTeam = AsyncHandler(async (req, res) => {
         message: message
     });
 });
+
+export const getEventForParticipant = AsyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const userId = req.user.userid;
+
+    // Get basic event details
+    const eventQuery = `
+        SELECT *
+        FROM events
+        WHERE EventID = @EventID AND IsActive = 1
+    `;
+
+    const eventResult = await executeParameterizedQuery(eventQuery, { EventID: id });
+
+    if (eventResult.recordset.length === 0) {
+        return res.status(HTTPSTATUS.NOT_FOUND).json({
+            success: false,
+            message: "Event not found"
+        });
+    }
+
+    const event = eventResult.recordset[0];
+
+    // Check if user is enrolled in this event through team membership
+    const enrollmentQuery = `
+        SELECT 
+            t.TeamId,
+            t.TeamName,
+            t.CreatedAt as TeamCreatedAt,
+            tm.Role,
+            ee.EnrolledAt
+        FROM event_enrollments ee
+        INNER JOIN teams t ON ee.TeamID = t.TeamId
+        INNER JOIN team_members tm ON t.TeamId = tm.TeamId AND tm.UserId = @UserId
+        WHERE ee.EventID = @EventID AND ee.UserID = @UserId
+    `;
+
+    const enrollmentResult = await executeParameterizedQuery(enrollmentQuery, { 
+        EventID: id, 
+        UserId: userId 
+    });
+
+    let enrollmentData = null;
+    let teamDetails = null;
+
+    if (enrollmentResult.recordset.length > 0) {
+        const enrollment = enrollmentResult.recordset[0];
+        
+        // Get full team member details
+        const teamMembersQuery = `
+            SELECT 
+                u.userid,
+                u.name,
+                u.email,
+                tm.Role
+            FROM team_members tm
+            INNER JOIN users u ON tm.UserId = u.userid
+            WHERE tm.TeamId = @TeamId
+            ORDER BY 
+                CASE WHEN tm.Role = 'Leader' THEN 1 ELSE 2 END,
+                u.name
+        `;
+
+        const teamMembersResult = await executeParameterizedQuery(teamMembersQuery, { 
+            TeamId: enrollment.TeamId 
+        });
+
+        teamDetails = {
+            TeamId: enrollment.TeamId,
+            TeamName: enrollment.TeamName,
+            EventId: parseInt(id),
+            CreatedAt: enrollment.TeamCreatedAt,
+            members: teamMembersResult.recordset
+        };
+
+        enrollmentData = {
+            isEnrolled: true,
+            enrolledAt: enrollment.EnrolledAt,
+            userRole: enrollment.Role,
+            team: teamDetails
+        };
+    } else {
+        enrollmentData = {
+            isEnrolled: false,
+            enrolledAt: null,
+            userRole: null,
+            team: null
+        };
+    }
+
+    return res.status(HTTPSTATUS.OK).json({
+        success: true,
+        message: "Event details retrieved successfully",
+        data: {
+            event: event,
+            enrollment: enrollmentData
+        }
+    });
+});

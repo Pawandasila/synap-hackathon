@@ -13,7 +13,8 @@ import {
     getUserEnrollments,
     getEventEnrollments,
     getEnrollmentStats,
-    updateEnrollmentTeam
+    updateEnrollmentTeam,
+    getEventForParticipant
 } from "../controllers/event.controller.js";
 import { authenticateToken, requireRole } from "../middlewares/auth.middleware.js";
 
@@ -24,6 +25,7 @@ router.post("/create", authenticateToken, requireRole(["organizer"]), createEven
 router.get('/', authenticateToken, getEvents);
 router.get('/search', authenticateToken, requireRole(["participant", "organizer"]), searchEvents);
 router.get('/upcoming', authenticateToken, getUpcomingEvents);
+router.get('/:id/participant', authenticateToken, requireRole(['participant']), getEventForParticipant);
 router.get('/:id', authenticateToken, getEventById);
 router.get('/organizer/:organizerId', authenticateToken, getEventByOrganizerId);
 router.patch('/update/:id', authenticateToken, requireRole(["organizer"]), updateEvent);
